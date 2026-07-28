@@ -8,4 +8,14 @@ layout:
 - go.kubebuilder.io/v4
 projectName: webapp-operator
 repo: github.com/divakaivan/webapp-operator-k8s
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: divakaivan.github.io
+  group: webapp
+  kind: WebApp
+  path: github.com/divakaivan/webapp-operator-k8s/api/v1
+  version: v1
 version: "3"
