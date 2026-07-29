@@ -47,9 +47,13 @@ type WebAppReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.24.1/pkg/reconcile
 func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = logf.FromContext(ctx)
+	log := logf.FromContext(ctx)
+	var webapp webappv1.WebApp
 
-	// TODO(user): your logic here
+	if err := r.Get(ctx, req.NamespacedName, &webapp); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+	log.Info("fetched WebApp", "image", webapp.Spec.Image, "replicas", webapp.Spec.Replicas)
 
 	return ctrl.Result{}, nil
 }
