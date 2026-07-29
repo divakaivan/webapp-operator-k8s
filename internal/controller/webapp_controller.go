@@ -27,7 +27,10 @@ import (
 	webappv1 "github.com/divakaivan/webapp-operator-k8s/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // WebAppReconciler reconciles a WebApp object
@@ -57,6 +60,20 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	log.Info("fetched WebApp", "image", webapp.Spec.Image, "replicas", webapp.Spec.Replicas)
+	desiredDeploy := deploymentFor(&webapp)
+	if err := controllerutil.SetControllerReference(&webapp, desiredDeploy, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+	found := &appsv1.Deployment{}
+	err := r.Get(ctx, types.NamespacedName{Name: desiredDeploy.Name, Namespace: desiredDeploy.Namespace}, found)
+	if apierrors.IsNotFound(err) {
+		log.Info("creating Deployment", "name", desiredDeploy.Name)
+		if err := r.Create(ctx, desiredDeploy); err != nil {
+			return ctrl.Result{}, err
+		}
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	return ctrl.Result{}, nil
 }
