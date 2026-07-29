@@ -30,6 +30,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -85,9 +86,25 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		log.Info("creating ConfigMap", "name", desiredCM.Name)
 		if err := r.Create(ctx, desiredCM); err != nil {
 			return ctrl.Result{}, err
-		} else if err != nil {
+		}
+	} else if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	desiredSvc := serviceFor(&webapp)
+	if err := controllerutil.SetControllerReference(&webapp, desiredSvc, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	foundSvc := &corev1.Service{}
+	err = r.Get(ctx, types.NamespacedName{Name: desiredSvc.Name, Namespace: desiredSvc.Namespace}, foundSvc)
+	if apierrors.IsNotFound(err) {
+		log.Info("creating Service", "name", desiredSvc.Name)
+		if err := r.Create(ctx, desiredSvc); err != nil {
 			return ctrl.Result{}, err
 		}
+	} else if err != nil {
+		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
@@ -130,6 +147,25 @@ func configMapFor(w *webappv1.WebApp) *corev1.ConfigMap {
 		},
 		Data: map[string]string{
 			"welcome.html": "<h1>Hello from " + w.Name + "</h1>",
+		},
+	}
+}
+
+func serviceFor(w *webappv1.WebApp) *corev1.Service {
+	labels := map[string]string{"app": w.Name}
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      w.Name,
+			Namespace: w.Namespace,
+			Labels:    labels,
+		},
+		Spec: corev1.ServiceSpec{
+			Type:     corev1.ServiceTypeClusterIP,
+			Selector: labels,
+			Ports: []corev1.ServicePort{{
+				Port:       80,
+				TargetPort: intstr.FromInt32(80),
+			}},
 		},
 	}
 }
