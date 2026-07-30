@@ -75,6 +75,12 @@ func (r *WebAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	} else if err != nil {
 		return ctrl.Result{}, err
 	}
+	if webapp.Status.ReadyReplicas != found.Status.ReadyReplicas {
+		webapp.Status.ReadyReplicas = found.Status.ReadyReplicas
+		if err := r.Status().Update(ctx, &webapp); err != nil {
+			return ctrl.Result{}, err
+		}
+	}
 
 	desiredCM := configMapFor(&webapp)
 	if err := controllerutil.SetControllerReference(&webapp, desiredCM, r.Scheme); err != nil {
